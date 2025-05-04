@@ -11,13 +11,18 @@
        01  WS-OPERATOR  PIC      X(01)          VALUE SPACE.
        01  WS-NUMB2     PIC     S9(03)v9(03)    VALUE ZERO.
 
+      *Variable Non signées.
+       01  WS-TOTAL-NS  PIC     Z(20).9(03)     VALUE ZERO.
+       01  WS-NUMB1-NS  PIC     Z(03).9(03)     VALUE ZERO.
+       01  WS-NUMB2-NS  PIC     Z(03).9(03)     VALUE ZERO.
+
       *Variable réponse (pourrait être un bool)
        01  WS-ENCORE    PIC      X(04)          VALUE SPACE.
 
       *Variable d'affichage.
-       01  WS-TOTAL-ED  PIC     -Z(20).99       VALUE ZERO.
-       01  WS-NUMB1-ED  PIC     -Z(20).99       VALUE ZERO.
-       01  WS-NUMB2-ED  PIC     -Z(20).99       VALUE ZERO.
+       01  WS-TOTAL-ED  PIC     Z(20).99       VALUE ZERO.
+       01  WS-NUMB1-ED  PIC     Z(20).99       VALUE ZERO.
+       01  WS-NUMB2-ED  PIC     Z(20).99       VALUE ZERO.
 
       *Variable pour afficher l'historique complet.
        01  WS-DETAIL    PIC      X(255).
@@ -30,11 +35,12 @@
       *Première saisie avec les fonctions liées à l'historique.
            DISPLAY "Entrez le premier nombre".
            ACCEPT WS-NUMB1.
-           MOVE   WS-NUMB1 TO WS-NUMB1-ED.
-           STRING FUNCTION TRIM(WS-DETAIL) DELIMITED BY SIZE 
-                  FUNCTION TRIM(WS-NUMB1-ED)  DELIMITED BY SIZE 
-                  INTO WS-DETAIL
-           END-STRING.
+           PERFORM 0710-TRIM1-START
+           THRU    0710-TRIM1-END.
+           STRING FUNCTION TRIM(WS-DETAIL) DELIMITED BY SIZE
+                  FUNCTION TRIM(WS-NUMB1-ED)  DELIMITED BY SIZE
+                         INTO WS-DETAIL
+                  END-STRING.
            
       *Lancement du programme.     
            PERFORM 0400-INPUT-START
@@ -108,12 +114,11 @@
             IF WS-HIST = "YES"
                THEN 
       *Prépare et transfert le résultat final dans l'historique.
-                  MOVE WS-TOTAL TO WS-TOTAL-ED
-                  STRING 
-                  FUNCTION TRIM(WS-DETAIL)    DELIMITED BY SIZE
-                                  "="         DELIMITED BY SIZE
-                  FUNCTION TRIM(WS-TOTAL-ED)  DELIMITED BY SIZE
-                  INTO WS-DETAIL
+                  PERFORM 0730-TRIM-TOTAL-START
+                  THRU    0730-TRIM-TOTAL-END
+                  STRING FUNCTION TRIM(WS-DETAIL) DELIMITED BY SIZE "="
+                         FUNCTION TRIM(WS-TOTAL-ED)  DELIMITED BY SIZE
+                         INTO WS-DETAIL
                   END-STRING
                DISPLAY WS-DETAIL
             END-IF
@@ -122,6 +127,7 @@
       *Envoie au paragraphe pour message d'erreur + relance.
                   PERFORM 0500-WRONG-ENCORE-START
                   THRU    0500-WRONG-ENCORE-END
+           END-EVALUATE.
 
            EXIT.
        0300-ENCORE-END.
@@ -137,13 +143,14 @@
       *Saisie du 2ème nombre.
            DISPLAY "Entrez le deuxième nombre".    
            ACCEPT WS-NUMB2.
-           MOVE   WS-NUMB2 TO WS-NUMB2-ED.
       *Envoie au paragraphe de calcul.
            PERFORM 0100-CALCUL-START
            THRU    0100-CALCUL-END.
       *Fonction liée à l'historique pour le 2ème nombre.
-           STRING FUNCTION TRIM(WS-DETAIL) DELIMITED BY SIZE 
-                  FUNCTION TRIM(WS-NUMB2-ED)  DELIMITED BY SIZE 
+           PERFORM 0720-TRIM2-START
+           THRU    0720-TRIM2-END.
+           STRING FUNCTION TRIM(WS-DETAIL) DELIMITED BY SIZE
+                  FUNCTION TRIM(WS-NUMB2-ED)  DELIMITED BY SIZE
                   INTO WS-DETAIL
            END-STRING.
       *Envoie au paragraphe pour afficher le résultat.
@@ -167,14 +174,60 @@
 
        0600-SHOW-RESULT-START.
       *Prépare et affiche le résultat.
-           MOVE WS-NUMB1 TO WS-NUMB1-ED.
-           MOVE WS-NUMB2 TO WS-NUMB2-ED.
-           MOVE WS-TOTAL TO WS-TOTAL-ED.
+           PERFORM 0710-TRIM1-START
+           THRU    0710-TRIM1-END.
+           PERFORM 0720-TRIM2-START
+           THRU    0720-TRIM2-END.
+           PERFORM 0730-TRIM-TOTAL-START
+           THRU    0730-TRIM-TOTAL-END.
            DISPLAY FUNCTION TRIM(WS-NUMB1-ED) WS-OPERATOR
-                   FUNCTION TRIM(WS-NUMB2-ED) "=" 
+                   FUNCTION TRIM(WS-NUMB2-ED) "="
                    FUNCTION TRIM(WS-TOTAL-ED).
 
            EXIT.
        0600-SHOW-RESULT-END.
 
+       0700-TRIM-START.
+      *Enlève les 0 même en négatif.
+       0710-TRIM1-START.
+           MOVE   WS-NUMB1 TO WS-NUMB1-NS.
+           IF WS-NUMB1 < 0
+                THEN
+                  STRING "-" DELIMITED BY SIZE
+                         FUNCTION TRIM(WS-NUMB1-NS)  DELIMITED BY SIZE
+                         INTO WS-NUMB1-ED
+                  END-STRING
+           ELSE MOVE WS-NUMB1 TO WS-NUMB1-ED
+           END-IF.
+           EXIT.
+       0710-TRIM1-END.
 
+       0720-TRIM2-START.
+           MOVE   WS-NUMB2 TO WS-NUMB2-NS.
+           IF WS-NUMB2 < 0
+                THEN
+                  STRING "-" DELIMITED BY SIZE
+                         FUNCTION TRIM(WS-NUMB2-NS)  DELIMITED BY SIZE
+                         INTO WS-NUMB2-ED
+                  END-STRING
+           ELSE MOVE WS-NUMB2 TO WS-NUMB2-ED
+           END-IF.
+           
+           EXIT.
+       0720-TRIM2-END.
+
+       0730-TRIM-TOTAL-START.
+           MOVE   WS-TOTAL TO WS-TOTAL-NS.
+           IF WS-TOTAL < 0
+                THEN
+                  STRING "-" DELIMITED BY SIZE
+                         FUNCTION TRIM(WS-TOTAL-NS)  DELIMITED BY SIZE
+                         INTO WS-TOTAL-ED
+                  END-STRING
+           ELSE MOVE WS-TOTAL TO WS-TOTAL-ED
+           END-IF.
+           
+           EXIT.
+       0730-TRIM-TOTAL-END.
+           EXIT.
+       0700-TRIM-END.
